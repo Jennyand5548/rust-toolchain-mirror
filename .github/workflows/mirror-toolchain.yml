@@ -62,6 +62,9 @@ jobs:
   mirror:
     needs: resolve-version
     runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
     strategy:
       matrix:
         target:
@@ -81,8 +84,6 @@ jobs:
 
       - name: Skip if this version was already mirrored
         id: check
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           TAG="v${{ steps.names.outputs.version }}"
           if gh release view "$TAG" --json assets \
@@ -124,8 +125,6 @@ jobs:
 
       - name: Publish as a GitHub Release
         if: steps.check.outputs.already_mirrored == 'false'
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           TAG="v${{ steps.names.outputs.version }}"
           if gh release view "$TAG" >/dev/null 2>&1; then
