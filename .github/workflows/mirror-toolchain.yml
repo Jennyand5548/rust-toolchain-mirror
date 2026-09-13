@@ -1,0 +1,74 @@
+name: Mirror Rust Toolchain (Linux, Mac, Windows)
+
+on:
+  workflow_dispatch:
+    inputs:
+      rust_version:
+        description: "Exact version to mirror (e.g. 1.91.0). Use the version number, not 'stable'."
+        required: true
+        default: "1.91.0"
+
+permissions:
+  contents: write   # only permission granted: create a release, upload assets
+
+jobs:
+  mirror:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-apple-darwin
+          - x86_64-pc-windows-msvc
+
+    steps:
+      - name: Set filenames
+        id: names
+        run: |
+          VERSION="${{ inputs.rust_version }}"
+          TARGET="${{ matrix.target }}"
+          TARBALL="rust-${VERSION}-${TARGET}.tar.gz"
+          echo "version=$VERSION"   >> "$GITHUB_OUTPUT"
+          echo "tarball=$TARBALL"   >> "$GITHUB_OUTPUT"
+
+      - name: Download official tarball and signature from static.rust-lang.org
+        run: |
+          curl --proto '=https' --tlsv1.2 -fSLO \
+            "https://static.rust-lang.org/dist/${{ steps.names.outputs.tarball }}"
+          curl --proto '=https' --tlsv1.2 -fSLO \
+            "https://static.rust-lang.org/dist/${{ steps.names.outputs.tarball }}.asc"
+
+      - name: Import Rust's official release-signing key
+        run: |
+          curl --proto '=https' --tlsv1.2 -fsSL \
+            https://static.rust-lang.org/rust-key.gpg.ascii | gpg --import
+
+      - name: Verify the fingerprint matches Rust's published key exactly
+        run: |
+          EXPECTED="108F 6620 5EAE B0AA A8DD  5E1C 85AB 96E6 FA1B E5FE"
+          ACTUAL=$(gpg --fingerprint "Rust Language" | grep -A1 "pub " | tail -1 | xargs)
+          echo "Expected: $EXPECTED"
+          echo "Actual:   $ACTUAL"
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Fingerprint mismatch — refusing to publish an unverified file."
+            exit 1
+          fi
+
+      - name: Verify the tarball's signature
+        run: gpg --verify "${{ steps.names.outputs.tarball }}.asc" "${{ steps.names.outputs.tarball }}"
+
+      - name: Publish as a GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ steps.names.outputs.version }}" \
+            "${{ steps.names.outputs.tarball }}" \
+            "${{ steps.names.outputs.tarball }}.asc" \
+            --title "Rust ${{ steps.names.outputs.version }} (official, all platforms)" \
+            --notes "Unmodified official standalone installers, mirrored from static.rust-lang.org after GPG signature verification. Do not trust a file if its 'Verify' step did not pass." \
+            --latest \
+            || echo "Release already exists — uploading these assets to it instead" && \
+          gh release upload "v${{ steps.names.outputs.version }}" \
+            "${{ steps.names.outputs.tarball }}" \
+            "${{ steps.names.outputs.tarball }}.asc" \
+            --clobber
