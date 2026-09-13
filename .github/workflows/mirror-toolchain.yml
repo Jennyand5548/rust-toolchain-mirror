@@ -66,11 +66,48 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     strategy:
+      fail-fast: false   # one bad/unsupported target shouldn't cancel the other 31
       matrix:
         target:
+          # Linux (glibc)
           - x86_64-unknown-linux-gnu
+          - aarch64-unknown-linux-gnu
+          - i686-unknown-linux-gnu
+          - arm-unknown-linux-gnueabi
+          - arm-unknown-linux-gnueabihf
+          - armv7-unknown-linux-gnueabihf
+          - powerpc-unknown-linux-gnu
+          - powerpc64-unknown-linux-gnu
+          - powerpc64le-unknown-linux-gnu
+          - riscv64gc-unknown-linux-gnu
+          - s390x-unknown-linux-gnu
+          - loongarch64-unknown-linux-gnu
+          # Linux (musl)
+          - x86_64-unknown-linux-musl
+          - aarch64-unknown-linux-musl
+          - powerpc64-unknown-linux-musl
+          - powerpc64le-unknown-linux-musl
+          - loongarch64-unknown-linux-musl
+          # Linux (OpenHarmony)
+          - aarch64-unknown-linux-ohos
+          # Mac
           - x86_64-apple-darwin
+          - aarch64-apple-darwin
+          # Windows
           - x86_64-pc-windows-msvc
+          - x86_64-pc-windows-gnu
+          - x86_64-pc-windows-gnullvm
+          - aarch64-pc-windows-msvc
+          - aarch64-pc-windows-gnullvm
+          - i686-pc-windows-msvc
+          - i686-pc-windows-gnu
+          # BSD / Solaris / illumos
+          - x86_64-unknown-freebsd
+          - aarch64-unknown-freebsd
+          - x86_64-unknown-netbsd
+          - x86_64-pc-solaris
+          - sparcv9-sun-solaris
+          - x86_64-unknown-illumos
 
     steps:
       - name: Set filenames
