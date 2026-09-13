@@ -43,10 +43,20 @@ jobs:
       - name: Extract the current stable version number
         id: resolve
         run: |
-          # The manifest has a line like: version = "1.98.0 (abcdef123 2026-08-01)"
-          RAW=$(grep -m1 '^version' channel-rust-stable.toml | cut -d '"' -f2)
+          # The manifest has a "version" line under every [pkg.xxx] section
+          # (rustc, cargo, rust-std, etc). We must only read the one inside
+          # [pkg.rust] — that's the number that matches the release tarballs.
+          RAW=$(awk '
+            /^\[pkg\.rust\]/ { in_section=1; next }
+            /^\[/            { in_section=0 }
+            in_section && /^version[ \t]*=/ { print; exit }
+          ' channel-rust-stable.toml | cut -d '"' -f2)
           VERSION=$(echo "$RAW" | awk '{print $1}')
           echo "Resolved latest stable Rust version: $VERSION"
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Extracted version '$VERSION' doesn't look like a real version number — refusing to proceed."
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
   mirror:
